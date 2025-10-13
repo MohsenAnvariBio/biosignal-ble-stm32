@@ -205,6 +205,7 @@ int main(void)
 //  /* Configure HM-10 (optional: only if not already configured) */
 //  FactoryReset();
 //  HAL_Delay(200);
+
 //  moduleReset();
 //  HAL_Delay(200);
 //  hm10_write_at_command("AT+NAME=STM32_PULSE\r\n");
