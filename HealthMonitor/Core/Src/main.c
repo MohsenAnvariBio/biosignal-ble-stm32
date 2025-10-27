@@ -44,8 +44,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define MOVING_AVG_L 1       // Size of the moving average buffer
-#define PPG_MOVING_AVG_L 5       // Size of the moving average buffer 60/5=40
-#define ECG_MOVING_AVG_L 5       // Size of the moving average buffer
+#define PPG_MOVING_AVG_L 15       // Size of the moving average buffer 60/5=40
+#define ECG_MOVING_AVG_L 10       // Size of the moving average buffer
 #define DATA_LENGTH  1000     // Length of data buffer
 #define INVALID_VALUE 0xFFFFFFFF // Sentinel value for invalid SpO2 data
 #define TRANSMIT_DIVIDER 25
@@ -124,7 +124,7 @@ char test_msg[20];
 float val = 0.0f;
 
 uint32_t lastSendTime = 0;
-const uint32_t SEND_INTERVAL_MS = 10;  // 50 Hz max BLE throughput
+const uint32_t SEND_INTERVAL_MS = 8;  // 50 Hz max BLE throughput
 
 float ecgAccumulator = 0.0f;
 uint8_t ecgSampleCount = 0;
@@ -245,6 +245,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	if (adc_ready) {
+
 		adc_ready = 0;
 
 		float voltage = adc_to_voltage(adc_val);
