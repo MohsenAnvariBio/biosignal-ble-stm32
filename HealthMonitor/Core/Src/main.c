@@ -43,12 +43,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MOVING_AVG_L 40       // Size of the moving average buffer
-#define PPG_MOVING_AVG_L 5       // Size of the moving average buffer 600/15=40
+#define MOVING_AVG_L 1       // Size of the moving average buffer
+#define PPG_MOVING_AVG_L 5       // Size of the moving average buffer 60/5=40
 #define ECG_MOVING_AVG_L 5       // Size of the moving average buffer
 #define DATA_LENGTH  1000     // Length of data buffer
 #define INVALID_VALUE 0xFFFFFFFF // Sentinel value for invalid SpO2 data
 #define TRANSMIT_DIVIDER 25
+
+#define ADC_SAMPLING_FREQ_HZ     250     // Timer trigger
+#define BLE_SEND_FREQ_HZ          40     // 20 ms
+#define ADC_SAMPLES_PER_PACKET    (ADC_SAMPLING_FREQ_HZ / BLE_SEND_FREQ_HZ)
+
 
 /* USER CODE END PD */
 
@@ -86,6 +91,7 @@ volatile uint8_t pulseOximiterIntFlag = 0;
 extern uint8_t startFinish;
 float prevInput_ir = 0.0f, prevOutput_ir = 0.0f;
 float prevInput_red = 0.0f, prevOutput_red = 0.0f;
+float prevInput_ecg = 0.0f, prevOutput_ecg = 0.0f;
 float buffer_ir[MOVING_AVG_L] = {0};
 float buffer_red[MOVING_AVG_L] = {0};
 float bufferPeakDet_ir[DATA_LENGTH] = {0};
@@ -118,7 +124,10 @@ char test_msg[20];
 float val = 0.0f;
 
 uint32_t lastSendTime = 0;
-const uint32_t SEND_INTERVAL_MS = 20;  // 50 Hz max BLE throughput
+const uint32_t SEND_INTERVAL_MS = 10;  // 50 Hz max BLE throughput
+
+float ecgAccumulator = 0.0f;
+uint8_t ecgSampleCount = 0;
 
 /* USER CODE END PV */
 
@@ -200,23 +209,6 @@ int main(void)
   pulseOximeter_setMeasurementMode(SPO2);
 
 
-//  hm10_uart_init(9600, 90000000);
-//
-//  /* Configure HM-10 (optional: only if not already configured) */
-//  FactoryReset();
-//  HAL_Delay(200);
-
-//  moduleReset();
-//  HAL_Delay(200);
-//  hm10_write_at_command("AT+NAME=STM32_PULSE\r\n");
-//  hm10_write_at_command("AT+ROLE0\r\n");
-//  hm10_write_at_command("AT+BAUD4\r\n");  // 9600 baud (depends on module firmware)
-//  HAL_Delay(200);
-//
-//
-//  hm10_write_string("HM10 Ready\r\n");
-
-
   hm10_uart_init(9600, 90000000);  // Start at default 9600
   FactoryReset();
   HAL_Delay(500);
@@ -229,6 +221,11 @@ int main(void)
   hm10_uart_init(115200, 90000000);  // Or whatever BAUD4 represents
   HAL_Delay(1000);
 
+
+  hm10_write_at_command("AT+ROLE0\r\n");        // peripheral
+  hm10_write_at_command("AT+IMME1\r\n");        // wait for connection
+  hm10_write_at_command("AT+INTERVAL=0,6\r\n"); // 7.5 ms connection interval
+  hm10_write_at_command("AT+NOTI1\r\n");        // enable connection notify
 
   // Start Timer first
   HAL_TIM_Base_Start(&htim2);
@@ -247,59 +244,33 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	    HAL_Delay(1000);
-//	    hm10_write_string("Loop OK\r\n");
-//      if (adc_ready) {
-//          adc_ready = 0;
-//
-//          float voltage = adc_to_voltage(adc_val);
-//          float ma_ecg = processMovingAverageVoltage(voltage, &ecgFilter, ECG_MOVING_AVG_L);
-//
-//          /* Example PPG signal */
-//          FIFO_LED_DATA fifoLedData = pulseOximeter_readFifo();
-//          float irRaw = (float)fifoLedData.irLedRaw;
-//          float reRaw = (float)fifoLedData.redLedRaw;
-//          float irFiltered = highPassFilter(irRaw, &prevInput_ir, &prevOutput_ir, 0.998f);
-//          float reFiltered = highPassFilter(reRaw, &prevInput_red, &prevOutput_red, 0.998f);
-//
-//          float ir_ppg = processMovingAverageVoltage(irFiltered, &ppgFilterIR, PPG_MOVING_AVG_L);
-//          float re_ppg = processMovingAverageVoltage(reFiltered, &ppgFilterRed, PPG_MOVING_AVG_L);
-//
-//          /* Format and send via HM-10 */
-//          char buf[64];
-//          snprintf(buf, sizeof(buf), "E:%.3f;P:%.3f\r\n", re_ppg, ir_ppg);
-//          hm10_write_string(buf);
-//      }
-//
+	if (adc_ready) {
+		adc_ready = 0;
 
-	    if (adc_ready) {
-	        adc_ready = 0;
+		float voltage = adc_to_voltage(adc_val);
+		float ecgFiltered = highPassFilter(voltage, &prevInput_ecg, &prevOutput_ecg, 0.99f);
+		float ma_ecg = processMovingAverageVoltage(ecgFiltered, &ecgFilter, ECG_MOVING_AVG_L);
 
-	        float voltage = adc_to_voltage(adc_val);
-	        float ma_ecg = processMovingAverageVoltage(voltage, &ecgFilter, ECG_MOVING_AVG_L);
+		FIFO_LED_DATA fifoLedData = pulseOximeter_readFifo();
+		float irRaw = (float)fifoLedData.irLedRaw;
+		float reRaw = (float)fifoLedData.redLedRaw;
+		float irFiltered = highPassFilter(irRaw, &prevInput_ir, &prevOutput_ir, 0.998f);
+		float reFiltered = highPassFilter(reRaw, &prevInput_red, &prevOutput_red, 0.998f);
 
-	        FIFO_LED_DATA fifoLedData = pulseOximeter_readFifo();
-	        float irRaw = (float)fifoLedData.irLedRaw;
-	        float reRaw = (float)fifoLedData.redLedRaw;
-	        float irFiltered = highPassFilter(irRaw, &prevInput_ir, &prevOutput_ir, 0.998f);
-	        float reFiltered = highPassFilter(reRaw, &prevInput_red, &prevOutput_red, 0.998f);
+		float ir_ppg = processMovingAverageVoltage(irFiltered, &ppgFilterIR, PPG_MOVING_AVG_L);
+		float re_ppg = processMovingAverageVoltage(reFiltered, &ppgFilterRed, PPG_MOVING_AVG_L);
 
-	        float ir_ppg = processMovingAverageVoltage(irFiltered, &ppgFilterIR, PPG_MOVING_AVG_L);
-	        float re_ppg = processMovingAverageVoltage(reFiltered, &ppgFilterRed, PPG_MOVING_AVG_L);
+		// --- Send data at a controlled rate ---
+		uint32_t now = HAL_GetTick();
+		if (now - lastSendTime >= SEND_INTERVAL_MS) {
+			lastSendTime = now;
 
-	        // --- Send data at a controlled rate ---
-	        uint32_t now = HAL_GetTick();
-	        if (now - lastSendTime >= SEND_INTERVAL_MS) {
-	            lastSendTime = now;
-
-	            char buf[64];
-	            int len = snprintf(buf, sizeof(buf), "E:%.3f;P:%.3f\r\n", re_ppg, ir_ppg);
-	            hm10_write_bytes((uint8_t *)buf, len);
-	        }
-	    }
+			char buf[64];
+			int len = snprintf(buf, sizeof(buf), "E:%.3f;P:%.3f\r\n", ma_ecg, ir_ppg);
+			hm10_write_bytes((uint8_t *)buf, len);
+		}
+	}
   }
-
-
   /* USER CODE END 3 */
 }
 
@@ -462,9 +433,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 8999;
+  htim2.Init.Prescaler = 499;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 19;
+  htim2.Init.Period = 999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
