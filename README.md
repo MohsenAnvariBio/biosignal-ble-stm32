@@ -28,5 +28,5 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 - Android application
 
 ![ECG Diagram](images/diagram.png)
-HealthMonitor/images/BlockDiagram.png
+!HealthMonitor/images/BlockDiagram.png
 
