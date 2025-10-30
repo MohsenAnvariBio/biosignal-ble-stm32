@@ -25,7 +25,7 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 ## Software / Libraries
 - STM32 HAL (CubeMX generated)
 - HM-10 AT command helper
-- Android application
+- Android application (https://github.com/MohsenAnvariBio/BioWave)
 
 
 ![Block Diagram](https://raw.githubusercontent.com/MohsenAnvariBio/biosignal-ble-stm32/1397e34d5e90fcb89109babe3ed14d124688d955/HealthMonitor/images/BlockDiagram.png)
