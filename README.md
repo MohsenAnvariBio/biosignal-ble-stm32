@@ -27,6 +27,7 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 - HM-10 AT command helper
 - Android application
 
-![ECG Diagram](images/diagram.png)
-!HealthMonitor/images/BlockDiagram.png
+
+![Block Diagram](https://github.com/<username>/HealthMonitor/raw/main/images/BlockDiagram.png)
+
 
