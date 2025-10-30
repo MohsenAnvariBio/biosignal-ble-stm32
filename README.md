@@ -34,6 +34,7 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 
 ![App](https://github.com/MohsenAnvariBio/biosignal-ble-stm32/blob/401778bdbd8b3f39392f361924014681f11b2fce/HealthMonitor/images/App.png)
 
-!Author: Mohsen Anvari
-!Email: s.mohsen.anvari.bio@gmail.com
-!Website: https://sites.google.com/view/mohsenanvari/home
+Author: Mohsen Anvari
+Email: s.mohsen.anvari.bio@gmail.com
+
+Website: https://sites.google.com/view/mohsenanvari/home
