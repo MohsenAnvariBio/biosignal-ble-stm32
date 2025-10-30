@@ -1,4 +1,4 @@
-# REAL-TIME ECG & PPG ACQUISITION AND PROCESSING SYSTEM (STM32F446RE)
+# REAL-TIME EMBEDDED BIOSIGNAL MONITORING SYSTEM WITH BLE TRANSMISSION AND ANDROID VISUALIZATION
 
 > Unified ECG + PPG (MAX30102) real-time acquisition & processing with BLE streaming to Android.
 
@@ -34,6 +34,7 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 
 ![App](https://github.com/MohsenAnvariBio/biosignal-ble-stm32/blob/401778bdbd8b3f39392f361924014681f11b2fce/HealthMonitor/images/App.png)
 
-> Author: Mohsen Anvari
-> Email: s.mohsen.anvari.bio@gmail.com
+> Author: Mohsen Anvari<br>
+> Email: s.mohsen.anvari.bio@gmail.com<br>
 > Website: https://sites.google.com/view/mohsenanvari/home
+
