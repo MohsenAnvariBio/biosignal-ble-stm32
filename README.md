@@ -28,6 +28,6 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 - Android application
 
 
-![Block Diagram](https://github.com/<username>/HealthMonitor/raw/main/images/BlockDiagram.png)
+![Block Diagram](https://raw.githubusercontent.com/MohsenAnvariBio/biosignal-ble-stm32/1397e34d5e90fcb89109babe3ed14d124688d955/HealthMonitor/images/BlockDiagram.png)
 
 
