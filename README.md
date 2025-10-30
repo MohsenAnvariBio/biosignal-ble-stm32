@@ -27,5 +27,6 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 - HM-10 AT command helper
 - Android application
 
+images/diagram.png
 
 
