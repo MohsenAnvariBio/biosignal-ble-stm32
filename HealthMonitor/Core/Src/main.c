@@ -44,7 +44,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define MOVING_AVG_L 1       // Size of the moving average buffer
-#define PPG_MOVING_AVG_L 15       // Size of the moving average buffer 60/5=40
+#define PPG_MOVING_AVG_L 12       // Size of the moving average buffer 60/5=40
 #define ECG_MOVING_AVG_L 10       // Size of the moving average buffer
 #define DATA_LENGTH  1000     // Length of data buffer
 #define INVALID_VALUE 0xFFFFFFFF // Sentinel value for invalid SpO2 data
@@ -124,7 +124,9 @@ char test_msg[20];
 float val = 0.0f;
 
 uint32_t lastSendTime = 0;
-const uint32_t SEND_INTERVAL_MS = 8;  // 50 Hz max BLE throughput
+uint32_t lastTempTime = 0;
+const uint32_t SEND_INTERVAL_MS = 8;  // 60 Hz max BLE throughput
+const uint32_t TEMP_INTERVAL_MS = 8 * 700;
 
 float ecgAccumulator = 0.0f;
 uint8_t ecgSampleCount = 0;
@@ -241,36 +243,53 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-	if (adc_ready) {
+      if (adc_ready) {
+          adc_ready = 0;
 
-		adc_ready = 0;
+          // --- ECG processing ---
+          float voltage = adc_to_voltage(adc_val);
+          float ecgFiltered = highPassFilter(voltage, &prevInput_ecg, &prevOutput_ecg, 0.99f);
+          float ma_ecg = processMovingAverageVoltage(ecgFiltered, &ecgFilter, ECG_MOVING_AVG_L);
 
-		float voltage = adc_to_voltage(adc_val);
-		float ecgFiltered = highPassFilter(voltage, &prevInput_ecg, &prevOutput_ecg, 0.99f);
-		float ma_ecg = processMovingAverageVoltage(ecgFiltered, &ecgFilter, ECG_MOVING_AVG_L);
+          // --- PPG processing ---
+          FIFO_LED_DATA fifoLedData = pulseOximeter_readFifo();
+          float irRaw = (float)fifoLedData.irLedRaw;
+          float reRaw = (float)fifoLedData.redLedRaw;
+          float irFiltered = highPassFilter(irRaw, &prevInput_ir, &prevOutput_ir, 0.998f);
+          float reFiltered = highPassFilter(reRaw, &prevInput_red, &prevOutput_red, 0.998f);
 
-		FIFO_LED_DATA fifoLedData = pulseOximeter_readFifo();
-		float irRaw = (float)fifoLedData.irLedRaw;
-		float reRaw = (float)fifoLedData.redLedRaw;
-		float irFiltered = highPassFilter(irRaw, &prevInput_ir, &prevOutput_ir, 0.998f);
-		float reFiltered = highPassFilter(reRaw, &prevInput_red, &prevOutput_red, 0.998f);
+          float ir_ppg = processMovingAverageVoltage(irFiltered, &ppgFilterIR, PPG_MOVING_AVG_L);
+          float re_ppg = processMovingAverageVoltage(reFiltered, &ppgFilterRed, PPG_MOVING_AVG_L);
 
-		float ir_ppg = processMovingAverageVoltage(irFiltered, &ppgFilterIR, PPG_MOVING_AVG_L);
-		float re_ppg = processMovingAverageVoltage(reFiltered, &ppgFilterRed, PPG_MOVING_AVG_L);
+          uint32_t now = HAL_GetTick();
 
-		// --- Send data at a controlled rate ---
-		uint32_t now = HAL_GetTick();
-		if (now - lastSendTime >= SEND_INTERVAL_MS) {
-			lastSendTime = now;
+          // --- Send ECG/PPG data every 8 ms ---
+          if (now - lastSendTime >= SEND_INTERVAL_MS) {
+              lastSendTime = now;
 
-			char buf[64];
-			int len = snprintf(buf, sizeof(buf), "E:%.3f;P:%.3f\r\n", ma_ecg, ir_ppg);
-			hm10_write_bytes((uint8_t *)buf, len);
-		}
-	}
+              // --- Check if it’s time to send temperature ---
+              bool sendTemp = (now - lastTempTime >= TEMP_INTERVAL_MS);
+              float temp = 0.0f;
+              if (sendTemp) {
+                  temp = pulseOximeter_readTemperature();
+                  lastTempTime = now;
+              }
+
+              char buf[80];
+              int len;
+              if (sendTemp) {
+                  len = snprintf(buf, sizeof(buf),
+                                 "E%.3f;P%.3f;T%.1f\r\n",
+                                 ma_ecg, ir_ppg, temp);
+              } else {
+                  len = snprintf(buf, sizeof(buf),
+                                 "E%.3f;P%.3f\r\n",
+                                 ma_ecg, ir_ppg);
+              }
+              hm10_write_bytes((uint8_t *)buf, len);
+          }
+      }
   }
   /* USER CODE END 3 */
 }
