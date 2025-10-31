@@ -28,7 +28,7 @@ Originally the system streamed over UART to a LabVIEW GUI. This version replaces
 - Android application (https://github.com/MohsenAnvariBio/BioWave)
 
 
-![Block Diagram](https://raw.githubusercontent.com/MohsenAnvariBio/biosignal-ble-stm32/1397e34d5e90fcb89109babe3ed14d124688d955/HealthMonitor/images/BlockDiagram.png)
+![Block Diagram](https://github.com/MohsenAnvariBio/biosignal-ble-stm32/blob/f5acf8bf351715f088f4dad57e01b85478f1bb0f/HealthMonitor/images/BlockDiagram.png)
 
 ![Curcuit](https://github.com/MohsenAnvariBio/biosignal-ble-stm32/blob/401778bdbd8b3f39392f361924014681f11b2fce/HealthMonitor/images/curcuit.png)
 
