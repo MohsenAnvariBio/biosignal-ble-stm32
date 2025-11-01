@@ -92,8 +92,8 @@ extern uint8_t startFinish;
 float prevInput_ir = 0.0f, prevOutput_ir = 0.0f;
 float prevInput_red = 0.0f, prevOutput_red = 0.0f;
 float prevInput_ecg = 0.0f, prevOutput_ecg = 0.0f;
-float buffer_ir[MOVING_AVG_L] = {0};
-float buffer_red[MOVING_AVG_L] = {0};
+//float buffer_ir[MOVING_AVG_L] = {0};
+//float buffer_red[MOVING_AVG_L] = {0};
 float bufferPeakDet_ir[DATA_LENGTH] = {0};
 float bufferPeakDet_red[DATA_LENGTH] = {0};
 uint32_t R[DATA_LENGTH] = {0};
@@ -125,11 +125,18 @@ float val = 0.0f;
 
 uint32_t lastSendTime = 0;
 uint32_t lastTempTime = 0;
-const uint32_t SEND_INTERVAL_MS = 8;  // 60 Hz max BLE throughput
-const uint32_t TEMP_INTERVAL_MS = 8 * 700;
+uint32_t lastSpo2Time = 0;
+#define WINDOW_LENGTH      700
+#define SEND_INTERVAL_MS   8
+#define TEMP_INTERVAL_MS   (SEND_INTERVAL_MS * WINDOW_LENGTH)
+#define SPO2_INTERVAL_MS   (2 * TEMP_INTERVAL_MS)
+#define SPO2_MAX_SAMPLES   (SPO2_INTERVAL_MS / SEND_INTERVAL_MS)
 
-float ecgAccumulator = 0.0f;
-uint8_t ecgSampleCount = 0;
+float buffer_ir[SPO2_MAX_SAMPLES] = {0};
+float buffer_red[SPO2_MAX_SAMPLES] = {0};
+
+uint16_t buffer_index = 0;   // Current position in buffer
+uint16_t buffer_count = 0;   // Number of valid samples collected
 
 /* USER CODE END PV */
 
@@ -243,7 +250,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
       if (adc_ready) {
           adc_ready = 0;
 
@@ -264,33 +270,46 @@ int main(void)
 
           uint32_t now = HAL_GetTick();
 
-          // --- Send ECG/PPG data every 8 ms ---
+          // --- Send ECG & PPG every 8 ms ---
           if (now - lastSendTime >= SEND_INTERVAL_MS) {
               lastSendTime = now;
+              char buf[64];
+              int len = 0;
 
-              // --- Check if it’s time to send temperature ---
-              bool sendTemp = (now - lastTempTime >= TEMP_INTERVAL_MS);
-              float temp = 0.0f;
-              if (sendTemp) {
-                  temp = pulseOximeter_readTemperature();
+              // --- Update buffers for SpO2 ---
+              buffer_ir[buffer_index] = ir_ppg;
+              buffer_red[buffer_index] = re_ppg;
+              if (buffer_count < SPO2_MAX_SAMPLES) buffer_count++;
+              buffer_index = (buffer_index + 1) % SPO2_MAX_SAMPLES;
+
+              // --- SpO2 update ---
+              if (now - lastSpo2Time >= SPO2_INTERVAL_MS) {
+                  float SpO2 = 0.0f, ratio = 0.0f;
+                  calculate_SpO2(buffer_red, buffer_ir, buffer_count, &SpO2, &ratio);
+                  lastSpo2Time = now;
+                  len = snprintf(buf, sizeof(buf), "E%.3f;P%.3f;S%.1f\r\n", ma_ecg, ir_ppg, SpO2);
+                  buffer_index = 0;
+                  buffer_count = 0;
+              }
+              // --- Temperature update ---
+              else if (now - lastTempTime >= TEMP_INTERVAL_MS) {
+                  float temp = pulseOximeter_readTemperature();
                   lastTempTime = now;
+                  len = snprintf(buf, sizeof(buf), "E%.3f;P%.3f;T%.1f\r\n", ma_ecg, ir_ppg, temp);
+              }
+              // --- Regular ECG + PPG only ---
+              else {
+                 len = snprintf(buf, sizeof(buf), "E%.3f;P%.3f\r\n", ma_ecg, ir_ppg);
               }
 
-              char buf[80];
-              int len;
-              if (sendTemp) {
-                  len = snprintf(buf, sizeof(buf),
-                                 "E%.3f;P%.3f;T%.1f\r\n",
-                                 ma_ecg, ir_ppg, temp);
-              } else {
-                  len = snprintf(buf, sizeof(buf),
-                                 "E%.3f;P%.3f\r\n",
-                                 ma_ecg, ir_ppg);
-              }
-              hm10_write_bytes((uint8_t *)buf, len);
+              if (len > 0)
+                  hm10_write_bytes((uint8_t *)buf, len);
           }
       }
   }
+
+
+
   /* USER CODE END 3 */
 }
 

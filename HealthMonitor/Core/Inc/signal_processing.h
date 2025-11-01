@@ -27,6 +27,7 @@ float median(float *array, int count);
 uint16_t isFingerDetected(float *dataBuffer, size_t bufferSize);
 float process_ppg_signal(float ppg_signal_rdc, float *buffer, int M, int *i, int *filled);
 float highPassFilter(float input, float *prevInput, float *prevOutput, float alpha);
+void calculate_SpO2(float *redSignal, float *irSignal, int length, float *SpO2, float *ratio);
 
 
 #endif /* __FILTER_H__ */
